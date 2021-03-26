@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 
 r'''
-Usage: git bump [major|minor|patch] [commit message]
-
 Use git bump to:
     - increment the version number stored in the .ini file for the project
-    - add a tag to the repository with the optional commit message
+    - add a tag to the git repository with an optional commit message
     - push the tags to the remote repository
+
+When a pre-release flag is used, if a pre-release flag is already in play then
+it is incremented and otherwise, by default, the minor version is incremented
+and the pre-release flag is added to it. To create a major pre-release use
+`--major` as well. If a pre-release flag is already being used and lower
+pre-release flag is used then `git bump` exists with an error.
 
 Author
 ......
 
 Andrew Mathas
-
-git bump Version 1.0
-
-Copyright (C) 2021
+Version {version}
+Copyright (C) {copyright}
 
 ------------
 
@@ -33,6 +35,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 
@@ -58,7 +61,7 @@ class Settings(dict):
     """
     def __init__(self, filename):
         super().__init__()
-        with open(filename, 'r') as meta:
+        with open(os.path.join(os.path.dirname(__file__), filename), 'r') as meta:
             for line in meta:
                 key, val = line.split('=')
                 if key.strip() != '':
@@ -72,32 +75,38 @@ class BumpVersion:
 
     def __init__(self, options):
         '''
-            We have to the following:
-                - locate and read the ini file for the project
-                - bump the patch/minor/major version
-                - save the version number in the ini file
-                - add a tag to the git repository with the supplied commit message
-                - push the tags to the remote repository
+        We have to do the following:
+            - locate and read the ini file for the project
+            - bump the patch/minor/major version
+            - save the version number in the ini file
+            - add a tag to the git repository with the supplied commit message
+            - push the tags to the remote repository
+
+        INPUTS:
+
+        The input `options` must be a dictionary containing the following keys:
+            - level      -- the release level: patch, minor or major
+            - prerelease -- a pre-release level: alpha, beta or rc (release candidate)
+            - message    -- the commit message to use in the repository
+            - pushtags   -- when true finish with 'git push --tags'
+
         '''
-        # change directory to the root of the repository
+        # remember the options
+        self.level      = options.level
+        self.prerelease = options.prerelease
+        self.message    = options.message
+        self.pushtags   = options.pushtags
 
-        project_dir = git('root')
-
-        try:
-            os.chdir(project_dir)
-
-        except IOError as err:
-            print(f'There was a problem changing to the root directory of the project\n - {err}')
-            sys.exit(2)
-
-        self.level = options.level
-        self.commit_message = ' '.join(options.message)
-        self.push_tags = options.pushtags
-
-        self.project = os.path.basename(project_dir).lower()
+        # read ini file
         self.read_ini_file()
+
+        # increment the version number
         self.bump_version()
+
+        # save updated ini file
         self.save_ini_file()
+
+        # commit new version and add a tag
         self.add_git_tag()
 
 
@@ -111,14 +120,14 @@ class BumpVersion:
             'patch': 'Patch',
         }[self.level]
 
-        if self.commit_message == '':
+        if self.message == '':
             git(f'commit -am "{description} {self._ini_file_data["version"]}"')
             git(f'tag -a v{self._ini_file_data["version"]}')
         else:
-            git(f'commit -am "{description} {self._ini_file_data["version"]}: {self.commit_message}"')
-            git(f'tag -a v{self._ini_file_data["version"]} -m "{description}: {self.commit_message}"')
+            git(f'commit -am "{description} {self._ini_file_data["version"]}: {self.message}"')
+            git(f'tag -a v{self._ini_file_data["version"]} -m "{description}: {self.message}"')
 
-        if self.push_tags:
+        if self.pushtags:
             git('push --tags')
 
 
@@ -129,24 +138,74 @@ class BumpVersion:
         TODO: support release candidates etc
         '''
 
-        version = self._ini_file_data['version'].split('.')
+        version = re.split('\.|-', self._ini_file_data['version'])
         # enforce semvar version number of the form major.minor.patch
         while len(version) < 3:
             version.append('0')
 
-        # map levels to array indices
-        level = {
-            'major': 0,
-            'minor': 1,
-            'patch': 2,
-        }[self.level]
+        if self.prerelease is None:
 
-        version[level] = f'{int(version[level])+1}'
-        for l in range(level+1,3):
-            version[l] = '0'
+            # map levels to array indices
+            level = {
+                'major': 0,
+                'minor': 1,
+                'patch': 2,
+                None:    2, # default
+            }[self.level]
 
-        # save the new version in the ini file
-        self._ini_file_data['version'] = '.'.join(version)
+            if len(version) == 4:
+                # a pre-release is in play so we need to check that we are
+                # bumping at the correct level
+                if any(version[l]!='0' for l in range(level,4)):
+                    print(f'A {self.level} release cannot follow pre-release {self._ini_file_data["version"]}')
+                    sys.exit(5)
+
+                else:
+                    # bump the pre-release to a release in the ini file data
+                    self._ini_file_data['version'] = ".".join(version[:3])
+
+            else:
+                # straightforward increment of correct level of the version number
+                version[level] = f'{int(version[level])+1}'
+                # followed by resetting the remaining version numbers
+                for l in range(level+1,3):
+                    version[l] = '0'
+
+                # store the new version in the ini file data
+                self._ini_file_data['version'] = '.'.join(version)
+
+        elif len(version) == 4:
+            # a pre-release flag is already in play
+
+            if self.prerelease[0] < version[3][0]:
+                print(f'An {self.prerelease} pre-release cannot not follow version {self._ini_file_data["version"]} !')
+                sys.exit(4)
+
+            elif self.prerelease[0] == version[3][0]:
+                # increment the pre-release number and store in the ini file data
+                version[3] = f'{version[3][0]}{int(version[3][1])+1}'
+                self._ini_file_data['version'] = f'{".".join(version[:3])}-{version[3]}'
+
+            else:
+                # start the next pre-release from 0 and store in ini file data
+                self._ini_file_data['version'] = f'{".".join(version[:3])}-{self.prerelease[3][0]}0'
+
+        else:
+            # starting a pre-release from 0
+
+            # map levels to array indices
+            level = {
+                'major': 0,
+                'minor': 1,
+                None:    1, # default
+                'patch': 2,
+            }[self.level]
+
+            # increment version number
+            version[level] = f'{int(version[level])+1}'
+            for l in range(level+1,3):
+                version[l] = '0'
+            self._ini_file_data['version'] = f'{".".join(version[:3])}-{self.prerelease[3][0]}0'
 
 
     def read_ini_file(self):
@@ -154,7 +213,18 @@ class BumpVersion:
         Locate and read the ini file for the project, storing the data
         in the dictionary self._ini_file.
         '''
-        self._ini_file = git(rf'ls-files \*{self.project}.ini')
+        # change directory to the root of the repository
+        project_dir = git('root')
+
+        try:
+            os.chdir(project_dir)
+
+        except IOError as err:
+            print(f'There was a problem changing to the root directory of the project\n - {err}')
+            sys.exit(2)
+
+        project = os.path.basename(project_dir).lower()
+        self._ini_file = git(rf'ls-files \*{project}.ini')
         self._ini_file_data = {}
         try:
             with open(self._ini_file) as ini:
@@ -196,7 +266,7 @@ def main():
     level.add_argument('-p', '--patch',
       action  = 'store_const',
       const   = 'patch',
-      default = 'patch',
+      default = None,
       dest    = 'level',
       help    = 'increment patch version'
     )
@@ -218,20 +288,20 @@ def main():
       action  = 'store_const',
       const   = 'alpha',
       default = None,
-      dest    = 'prelease',
-      help    = 'alpha release'
+      dest    = 'prerelease',
+      help    = 'alpha pre-release'
     )
     prerelease.add_argument('-b', '--beta',
       action  = 'store_const',
       const   = 'beta',
       default = None,
-      dest    = 'prelease',
-      help    = 'beta release'
+      dest    = 'prerelease',
+      help    = 'beta pre-release'
     )
-    prerelease.add_argument('-r', '-rc', '--rc',
+    prerelease.add_argument('-r', '--rc',
       action  = 'store_const',
       const   = 'rc',
-      dest    = 'prelease',
+      dest    = 'prerelease',
       help    = 'release candidate'
     )
 
@@ -249,9 +319,9 @@ def main():
 
     # override default help mechanism
     parser.add_argument('-h', '--help',
-      action  ='store_true',
-      default = False,
-      help    = argparse.SUPPRESS
+      default = 0,
+      action  = 'count',
+      help    = 'use -h for basic usage and -hh for extended help',
     )
 
     parser.add_argument(
@@ -264,10 +334,13 @@ def main():
 
     options = parser.parse_args()
 
-    if options.help:
+    if options.help > 0:
         parser.print_help()
+        if options.help > 1:
+            print(__doc__.format(copyright=settings.copyright, version=settings.version))
 
-    BumpVersion( parser.parse_args())
+    else:
+        BumpVersion( parser.parse_args() )
 
 
 if __name__ == '__main__':

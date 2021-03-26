@@ -27,7 +27,7 @@ import gitbump
 setup(name             = gitbump.settings.program,
       version          = gitbump.settings.version,
       description      = gitbump.settings.description,
-      long_description = gitbump.__doc__,
+      long_description = gitbump.__doc__.format(copyright=settings.copyright, version=settings.version)),
       author           = gitbump.settings.author,
       author_email     = gitbump.settings.author_email,
 
