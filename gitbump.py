@@ -7,7 +7,6 @@ Use git bump to:
     - increment the version number stored in the .ini file for the project
     - add a tag to the repository with the  optional commit message
 
-
 Author
 ......
 
@@ -32,15 +31,126 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 '''
 
 import argparse
+import os
+import subprocess
+import sys
+
+def git(command):
+    '''
+    Run the git command `cmd` and return the output
+    '''
+    git = subprocess.run(f'git {command}', shell=True, capture_output=True)
+    if git.returncode != 0 or git.stderr.decode() != '':
+        print(f'There was a problem running the git command\n    git {command}')
+        print(f'The following error occurred: {git.stderr.decode()}')
+        sys.exit(1)
+
+    return git.stdout.decode().strip()
 
 class BumpVersion:
 
     def __init__(self, options):
-        pass
+        '''
+            We have to the following:
+                - locate and read the ini file for the project
+                - bump the patch/minor/major version
+                - save the version number in the ini file
+                - add a tag to the git repository with the supplied commit
+                  message
+        '''
+        # change directory to the root of the repository
+
+        project_dir = git('root')
+
+        try:
+            os.chdir(project_dir)
+
+        except IOError as err:
+            print(f'There was a problem changing to the root directory of the project\n - {err}')
+            sys.exit(2)
+
+        self.project = os.path.basename(project_dir).lower()
+        self.read_ini_file()
+        self.bump_version(options.level)
+        self.save_ini_file()
+        self.add_git_tag( ' '.join(options.message) )
+
+
+    def add_git_tag(self, commit_message):
+        '''
+        Add a git tag the release together with any commit message
+        '''
+        if commit_message == '':
+            git(f'commit -m "Version {self._ini_file_data["version"]}"')
+            git(f'tag -a v{self._ini_file_data["version"]}')
+        else:
+            git(f'commit -m "Version {self._ini_file_data["version"]}: {commit_message}"')
+            git(f'tag -a v{self._ini_file_data["version"]} -m "{commit_message}"')
+
+
+    def bump_version(self, level):
+        '''
+        Bump the version number in self._ini_file_data["version"]
+
+        TODO: support release candidates etc
+        '''
+
+        version = self._ini_file_data['version'].split('.')
+        # enforce semvar version number of the form major.minor.patch
+        while len(version) < 3:
+            version.append('0')
+
+        # map levels to array indices
+        level = {
+            'major': 0,
+            'minor': 1,
+            'patch': 2,
+        }[level]
+
+        version[level] = f'{int(version[level])+1}'
+
+        # save the new version in the ini file
+        self._ini_file_data['version'] = '.'.join(version)
+
+
+    def read_ini_file(self):
+        '''
+        Locate and read the ini file for the project, storing the data
+        in the dictionary self._ini_file.
+        '''
+        self._ini_file = git(rf'ls-files \*{self.project}.ini')
+        self._ini_file_data = {}
+        try:
+            with open(self._ini_file) as ini:
+                for line in ini:
+                    key, value = line.split('=')
+                    self._ini_file_data[key.strip()] = value.strip()
+
+        except FileNotFoundError:
+            print('No ini file found in the repository!')
+            sys.exit(3)
+
+        if 'version' not in self._ini_file_data:
+            print(f'The version number is not specified in {self._ini_file}')
+            sys.exit(2)
+
+
+    def save_ini_file(self):
+        '''
+        Save the updated ini file
+        '''
+        padding = max(len(key) for key in self._ini_file_data)
+        with open(self._ini_file, 'w') as ini:
+            for key in self._ini_file_data:
+                ini.write(f'{key:<{padding}s} = {self._ini_file_data[key]}\n')
+
 
 
 # ---------------------------------------------------------------------------
-if __name__ == '__main__':
+def main():
+    '''
+    Parse command line arguments and pass them to BumpVersion
+    '''
     parser = argparse.ArgumentParser(
         description='Increment the version number in the ini file for a project and add tags to the repository',
     )
@@ -67,12 +177,15 @@ if __name__ == '__main__':
     )
 
     parser.add_argument(
-      action  = 'append',
-      default = [],
+      default = '',
       dest    = 'message',
       nargs   = '*',
-      type    = list,
+      type    = str,
       help    = "Git commit message"
     )
 
     BumpVersion( parser.parse_args())
+
+
+if __name__ == '__main__':
+    main()
