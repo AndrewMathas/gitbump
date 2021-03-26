@@ -122,6 +122,8 @@ class BumpVersion:
         }[self.level]
 
         version[level] = f'{int(version[level])+1}'
+        for l in range(level+1,3):
+            version[l] = '0'
 
         # save the new version in the ini file
         self._ini_file_data['version'] = '.'.join(version)
