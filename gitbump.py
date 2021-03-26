@@ -5,7 +5,8 @@ Usage: git bump [major|minor|patch] [commit message]
 
 Use git bump to:
     - increment the version number stored in the .ini file for the project
-    - add a tag to the repository with the  optional commit message
+    - add a tag to the repository with the optional commit message
+    - push the tags to the remote repository
 
 Author
 ......
@@ -55,8 +56,8 @@ class BumpVersion:
                 - locate and read the ini file for the project
                 - bump the patch/minor/major version
                 - save the version number in the ini file
-                - add a tag to the git repository with the supplied commit
-                  message
+                - add a tag to the git repository with the supplied commit message
+                - push the tags to the remote repository
         '''
         # change directory to the root of the repository
 
@@ -69,26 +70,39 @@ class BumpVersion:
             print(f'There was a problem changing to the root directory of the project\n - {err}')
             sys.exit(2)
 
+        self.level = options.level
+        self.commit_message = ' '.join(options.message)
+        self.push_tags = options.pushtags
+
         self.project = os.path.basename(project_dir).lower()
         self.read_ini_file()
-        self.bump_version(options.level)
+        self.bump_version()
         self.save_ini_file()
-        self.add_git_tag( ' '.join(options.message) )
+        self.add_git_tag()
 
 
-    def add_git_tag(self, commit_message):
+    def add_git_tag(self):
         '''
         Add a git tag the release together with any commit message
         '''
-        if commit_message == '':
-            git(f'commit -m "Version {self._ini_file_data["version"]}"')
+        description = {
+            'major': 'Version',
+            'minor': 'Minor update',
+            'patch': 'Patch',
+        }[self.level]
+
+        if self.commit_message == '':
+            git(f'commit -am "{description} {self._ini_file_data["version"]}"')
             git(f'tag -a v{self._ini_file_data["version"]}')
         else:
-            git(f'commit -m "Version {self._ini_file_data["version"]}: {commit_message}"')
-            git(f'tag -a v{self._ini_file_data["version"]} -m "{commit_message}"')
+            git(f'commit -am "{description} {self._ini_file_data["version"]}: {self.commit_message}"')
+            git(f'tag -a v{self._ini_file_data["version"]} -m "{description}: {self.commit_message}"')
+
+        if self.push_tags:
+            git('push --tags')
 
 
-    def bump_version(self, level):
+    def bump_version(self):
         '''
         Bump the version number in self._ini_file_data["version"]
 
@@ -105,7 +119,7 @@ class BumpVersion:
             'major': 0,
             'minor': 1,
             'patch': 2,
-        }[level]
+        }[self.level]
 
         version[level] = f'{int(version[level])+1}'
 
@@ -174,6 +188,12 @@ def main():
       const   = 'major',
       dest    = 'level',
       help    = 'increment major version'
+    )
+
+    parser.add_argument('--pushtags',
+      action  = 'store_true',
+      default = False,
+      help    = 'Push the tags to the remote'
     )
 
     parser.add_argument(
