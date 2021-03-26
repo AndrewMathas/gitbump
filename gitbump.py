@@ -36,6 +36,8 @@ import os
 import subprocess
 import sys
 
+
+############################################################
 def git(command):
     '''
     Run the git command `cmd` and return the output
@@ -48,6 +50,24 @@ def git(command):
 
     return git.stdout.decode().strip()
 
+
+############################################################
+class Settings(dict):
+    r"""
+    A dummy class for reading and storing key-value pairs that are read from a file
+    """
+    def __init__(self, filename):
+        super().__init__()
+        with open(filename, 'r') as meta:
+            for line in meta:
+                key, val = line.split('=')
+                if key.strip() != '':
+                    setattr(self, key.strip().lower(), val.strip())
+
+settings = Settings('gitbump.ini')
+
+
+############################################################
 class BumpVersion:
 
     def __init__(self, options):
@@ -168,6 +188,7 @@ def main():
     Parse command line arguments and pass them to BumpVersion
     '''
     parser = argparse.ArgumentParser(
+        add_help=False,
         description='Increment the version number in the ini file for a project and add tags to the repository',
     )
 
@@ -192,10 +213,45 @@ def main():
       help    = 'increment major version'
     )
 
+    prerelease = parser.add_mutually_exclusive_group()
+    prerelease.add_argument('-a', '--alpha',
+      action  = 'store_const',
+      const   = 'alpha',
+      default = None,
+      dest    = 'prelease',
+      help    = 'alpha release'
+    )
+    prerelease.add_argument('-b', '--beta',
+      action  = 'store_const',
+      const   = 'beta',
+      default = None,
+      dest    = 'prelease',
+      help    = 'beta release'
+    )
+    prerelease.add_argument('-r', '-rc', '--rc',
+      action  = 'store_const',
+      const   = 'rc',
+      dest    = 'prelease',
+      help    = 'release candidate'
+    )
+
     parser.add_argument('--pushtags',
       action  = 'store_true',
       default = False,
       help    = 'Push the tags to the remote'
+    )
+
+    parser.add_argument('-v', '--version',
+      action  ='version',
+      version = settings.version,
+      help    = argparse.SUPPRESS
+    )
+
+    # override default help mechanism
+    parser.add_argument('-h', '--help',
+      action  ='store_true',
+      default = False,
+      help    = argparse.SUPPRESS
     )
 
     parser.add_argument(
@@ -205,6 +261,11 @@ def main():
       type    = str,
       help    = "Git commit message"
     )
+
+    options = parser.parse_args()
+
+    if options.help:
+        parser.print_help()
 
     BumpVersion( parser.parse_args())
 

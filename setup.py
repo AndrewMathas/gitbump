@@ -24,26 +24,12 @@ from setuptools import setup, find_packages
 
 import gitbump
 
-class Settings(dict):
-    r"""
-    A dummy class for reading and storing key-value pairs that are read from a file
-    """
-    def __init__(self, filename):
-        super().__init__()
-        with open(filename, 'r') as meta:
-            for line in meta:
-                key, val = line.split('=')
-                if key.strip() != '':
-                    setattr(self, key.strip().lower(), val.strip())
-
-settings = Settings('gitbump.ini')
-
-setup(name             = settings.program,
-      version          = settings.version,
-      description      = settings.description,
+setup(name             = gitbump.settings.program,
+      version          = gitbump.settings.version,
+      description      = gitbump.settings.description,
       long_description = gitbump.__doc__,
-      author           = settings.author,
-      author_email     = settings.author_email,
+      author           = gitbump.settings.author,
+      author_email     = gitbump.settings.author_email,
 
       keywords         = 'git, version, tags',
 
@@ -52,7 +38,7 @@ setup(name             = settings.program,
 
       entry_points     = {'console_scripts': ['git-bump = gitbump:main'],},
 
-      license          = settings.licence,
+      license          = gitbump.settings.licence,
       classifiers      = [
         'Development Status :: 4 - Beta',
         'Environment :: Console',
