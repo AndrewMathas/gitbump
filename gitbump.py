@@ -181,25 +181,25 @@ class BumpVersion:
         elif len(version) == 4:
             # a pre-release flag is already in play
 
-            if self.prerelease[0] < version[3][0]:
-                print(f'An {self.prerelease} pre-release cannot not follow version {self._ini_file_data["version"]} !')
+            if self.prerelease[0] < version[0]:
+                print(f'An {self.prerelease} pre-release cannot follow pre-release {self._ini_file_data["version"]} !')
                 sys.exit(4)
 
-            elif self.prerelease[0] == version[3][0]:
+            elif self.prerelease[0] == version[0]:
                 # increment the pre-release number and store in the ini file data
                 version[3] = f'{version[3][0]}{int(version[3][1])+1}'
                 self._ini_file_data['version'] = f'{".".join(version[:3])}-{version[3]}'
 
             else:
                 # start the next pre-release from 0 and store in ini file data
-                self._ini_file_data['version'] = f'{".".join(version[:3])}-{self.prerelease[3][0]}0'
+                self._ini_file_data['version'] = f'{".".join(version[:3])}-{self.prerelease[0]}0'
 
         else:
             # increment version number
             version[level] = f'{int(version[level])+1}'
             for l in range(level+1,3):
                 version[l] = '0'
-            self._ini_file_data['version'] = f'{".".join(version[:3])}-{self.prerelease[3][0]}0'
+            self._ini_file_data['version'] = f'{".".join(version[:3])}-{self.prerelease[0]}0'
 
 
     def read_ini_file(self):
