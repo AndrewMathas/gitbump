@@ -45,11 +45,13 @@ def git(command):
     '''
     Run the git command `cmd` and return the output
     '''
+    print(f'Running: git {command}')
     git = subprocess.run(f'git {command}', shell=True, capture_output=True)
     if git.returncode != 0 or git.stderr.decode() != '':
-        print(f'There was a problem running the git command\n    git {command}')
-        print(f'The following error occurred: {git.stderr.decode()}')
-        sys.exit(1)
+        if 'spelling errors' not in git.stderr.decode():
+            print(f'There was a problem running the git command\n    git {command}')
+            print(f'The following error occurred: {git.stderr.decode()}')
+            sys.exit(1)
 
     return git.stdout.decode().strip()
 
@@ -98,7 +100,7 @@ class BumpVersion:
         else:
             self.level      = 'minor' if options.level is None else options.level
         self.prerelease = options.prerelease
-        self.message    = options.message
+        self.message    = ' '.join(options.message)
         self.pushtags   = options.pushtags
 
         # read ini file
