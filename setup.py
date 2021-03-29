@@ -22,14 +22,14 @@ import subprocess
 
 from setuptools import setup, find_packages
 
-import gitbump
+from gitbump import settings, __doc__
 
-setup(name             = gitbump.settings.program,
-      version          = gitbump.settings.version,
-      description      = gitbump.settings.description,
-      long_description = gitbump.__doc__.format(copyright=settings.copyright, version=settings.version)),
-      author           = gitbump.settings.author,
-      author_email     = gitbump.settings.author_email,
+setup(name             = settings.program,
+      version          = settings.version,
+      description      = settings.description,
+      long_description = __doc__.format(copyright=settings.copyright, version=settings.version),
+      author           = settings.author,
+      author_email     = settings.author_email,
 
       keywords         = 'git, version, tags',
 
@@ -38,7 +38,7 @@ setup(name             = gitbump.settings.program,
 
       entry_points     = {'console_scripts': ['git-bump = gitbump:main'],},
 
-      license          = gitbump.settings.licence,
+      license          = settings.licence,
       classifiers      = [
         'Development Status :: 4 - Beta',
         'Environment :: Console',

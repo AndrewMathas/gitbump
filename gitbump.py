@@ -92,7 +92,11 @@ class BumpVersion:
 
         '''
         # remember the options
-        self.level      = options.level
+        print(f'Options: {options}')
+        if options.prerelease is None:
+            self.level      = 'patch' if options.level is None else options.level
+        else:
+            self.level      = 'minor' if options.level is None else options.level
         self.prerelease = options.prerelease
         self.message    = options.message
         self.pushtags   = options.pushtags
@@ -143,20 +147,21 @@ class BumpVersion:
         while len(version) < 3:
             version.append('0')
 
-        if self.prerelease is None:
+        # map levels to array indices
+        level = {
+            'major': 0,
+            'minor': 1,
+            'patch': 2,
+        }[self.level]
 
-            # map levels to array indices
-            level = {
-                'major': 0,
-                'minor': 1,
-                'patch': 2,
-                None:    2, # default
-            }[self.level]
+        print(f'Version: {version}, level={level}')
+        print([version[l]!='0' for l in range(level+1,4)])
+        if self.prerelease is None:
 
             if len(version) == 4:
                 # a pre-release is in play so we need to check that we are
                 # bumping at the correct level
-                if any(version[l]!='0' for l in range(level,4)):
+                if any(version[l]!='0' for l in range(level+1,3)):
                     print(f'A {self.level} release cannot follow pre-release {self._ini_file_data["version"]}')
                     sys.exit(5)
 
@@ -191,16 +196,6 @@ class BumpVersion:
                 self._ini_file_data['version'] = f'{".".join(version[:3])}-{self.prerelease[3][0]}0'
 
         else:
-            # starting a pre-release from 0
-
-            # map levels to array indices
-            level = {
-                'major': 0,
-                'minor': 1,
-                None:    1, # default
-                'patch': 2,
-            }[self.level]
-
             # increment version number
             version[level] = f'{int(version[level])+1}'
             for l in range(level+1,3):
