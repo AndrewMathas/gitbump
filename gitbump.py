@@ -155,7 +155,6 @@ class BumpVersion:
         }[self.level]
 
         print(f'Version: {version}, level={level}')
-        print([version[l]!='0' for l in range(level+1,4)])
         if self.prerelease is None:
 
             if len(version) == 4:
