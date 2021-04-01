@@ -2,15 +2,16 @@
 
 r'''
 Use git bump to:
-    - increment the version number stored in the .ini file for the project
+    - increment the version number in the .ini file for the project
+    - update the release date in the .ini file
     - add a tag to the git repository with an optional commit message
-    - push the tags to the remote repository
+    - optionally, push the tags to the remote repository
 
-When a pre-release flag is used, if a pre-release flag is already in play then
+When a pre-release flag is used when a pre-release flag is already in play then
 it is incremented and otherwise, by default, the minor version is incremented
 and the pre-release flag is added to it. To create a major pre-release use
 `--major` as well. If a pre-release flag is already being used and lower
-pre-release flag is used then `git bump` exists with an error.
+pre-release flag is used then `git bump` exits with an error.
 
 Author
 ......
@@ -34,6 +35,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 '''
 
 import argparse
+import datetime
 import os
 import re
 import subprocess
@@ -241,6 +243,12 @@ class BumpVersion:
         '''
         Save the updated ini file
         '''
+
+        # update the release date
+        if 'release date' in self._ini_file_data:
+            now = datetime.datetime.now().astimezone()
+            self._ini_file_data['release date'] = f'{now:%-d %B %Y %Z}'
+
         padding = max(len(key) for key in self._ini_file_data)
         with open(self._ini_file, 'w') as ini:
             for key in self._ini_file_data:
