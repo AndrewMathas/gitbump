@@ -29,29 +29,7 @@ from gitbump import settings, __doc__
 # Class for building the package readme file and manual
 # ----------------------------------------------------------------------
 
-LICENSE='''
-Author
-......
-
-{author} Mathas
-
-`git bump`_ version {version}
-
-Copyright (C) {copyright}
-
-------------
-
-GNU General Public License, Version 3, 29 June 2007
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License (GPL_) as published by the Free
-Software Foundation, either version 3 of the License, or (at your option) any
-later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-
+README_BOTTOM='''
 .. _`git bump`: {repository}
 .. _GPL: http://www.gnu.org/licenses/gpl.html
 .. |version| image:: https://img.shields.io/github/v/tag/AndrewAtLarge/gitcat?color=success&label=version
@@ -93,7 +71,7 @@ class BuildDoc(Command):
         Construct the README.rst file from the files in the doc directory and
         using gitbump.py --generate_help.
         '''
-        doc = __doc__.split('******')
+        self.doc = __doc__.format(copyright=settings.copyright, version=settings.version)
         with open('README.rst', 'w', newline='\n') as readme:
             readme.write(self.readme())
 
@@ -121,20 +99,20 @@ class BuildDoc(Command):
         Return an rst string for the long description when uploading to PyPI
         '''
         newline = '\n'
-        return f'{self.rst_top()}{newline}{__doc__}{self.rst_bottom()}'
+        return f'{self.rst_top()}{newline}{self.doc}{self.rst_bottom()}'
 
     def readme(self):
         r'''
         Return an rst string for the README file
         '''
         newline = '\n'
-        return f'{self.rst_top()}{newline}{self.usage_message()}{newline}{__doc__}{self.rst_bottom()}'
+        return f'{self.rst_top()}{newline}{self.usage_message()}{newline}{self.doc}{self.rst_bottom()}'
 
     def rst_bottom(self):
         r'''
         Return a string for the bottom the rst file, which includes the licence
         '''
-        return LICENSE.format(
+        return '\n'+README_BOTTOM.format(
                 author     = settings.author,
                 copyright  = settings.copyright.split(' ')[0],
                 python     = settings.python,
@@ -146,8 +124,8 @@ class BuildDoc(Command):
         r'''
         Return a string for the top the rst file, which includes the heading
         '''
-        newline = '\n'
-        return f'{"="*10}{newline}`git_bump`{newline}{"="*10}{newline}'
+        NL = '\n'
+        return f'|version|{NL}|pyversion|{NL}|GPL3|{NL*2}{"="*10}{NL}`git_bump`{NL}{"="*10}{NL}'
 
     def usage_message(self):
         '''
@@ -155,7 +133,7 @@ class BuildDoc(Command):
         '''
         with subprocess.Popen('./gitbump.py --help', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pipes:
             output, error = pipes.communicate()
-        return output.decode()
+        return output.decode().replace('git-bump', 'git bump')
 
 
 # ----------------------------------------------------------------------

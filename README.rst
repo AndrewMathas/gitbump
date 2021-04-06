@@ -1,3 +1,7 @@
+|version|
+|pyversion|
+|GPL3|
+
 ==========
 `git_bump`
 ==========
@@ -38,29 +42,7 @@ Author
 ......
 
 Andrew Mathas
-Version {version}
-Copyright (C) {copyright}
-
-------------
-
-GNU General Public License, Version 3, 29 June 2007
-
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License (GPL_) as published by the Free
-Software Foundation, either version 3 of the License, or (at your option) any
-later version.
-
-This program is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
-PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-
-Author
-......
-
-Andrew Mathas Mathas
-
-`git bump`_ version 0.6.0
-
+Version 0.7.1
 Copyright (C) 2021
 
 ------------
@@ -75,6 +57,7 @@ later version.
 This program is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+
 
 .. _`git bump`: https://github.com/AndrewAtLarge/gitbump
 .. _GPL: http://www.gnu.org/licenses/gpl.html
