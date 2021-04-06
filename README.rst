@@ -3,10 +3,10 @@
 |GPL3|
 
 ==========
-`git_bump`
+`git bump`
 ==========
 
-usage: gitbump.py [-p | -m | -M] [-a | -b | -r] [--pushtags] [-h]
+usage: git bump [-p | -m | -M] [-a | -b | -r] [--pushtags] [-h]
                   [message ...]
 
 Increment the version number in the ini file for a project and add tags to the
@@ -42,7 +42,7 @@ Author
 ......
 
 Andrew Mathas
-Version 0.7.1
+Version 0.7.2
 Copyright (C) 2021
 
 ------------

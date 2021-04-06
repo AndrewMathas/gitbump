@@ -125,7 +125,7 @@ class BuildDoc(Command):
         Return a string for the top the rst file, which includes the heading
         '''
         NL = '\n'
-        return f'|version|{NL}|pyversion|{NL}|GPL3|{NL*2}{"="*10}{NL}`git_bump`{NL}{"="*10}{NL}'
+        return f'|version|{NL}|pyversion|{NL}|GPL3|{NL*2}{"="*10}{NL}`git bump`{NL}{"="*10}{NL}'
 
     def usage_message(self):
         '''
@@ -133,7 +133,7 @@ class BuildDoc(Command):
         '''
         with subprocess.Popen('./gitbump.py --help', shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as pipes:
             output, error = pipes.communicate()
-        return output.decode().replace('git-bump', 'git bump')
+        return output.decode().replace('gitbump.py', 'git bump')
 
 
 # ----------------------------------------------------------------------
