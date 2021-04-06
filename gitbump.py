@@ -47,7 +47,6 @@ def git(command):
     '''
     Run the git command `cmd` and return the output
     '''
-    print(f'Running: git {command}')
     git = subprocess.run(f'git {command}', shell=True, capture_output=True)
     if git.returncode != 0 or git.stderr.decode() != '':
         if 'spelling errors' not in git.stderr.decode():
@@ -96,7 +95,6 @@ class BumpVersion:
 
         '''
         # remember the options
-        print(f'Options: {options}')
         if options.prerelease is None:
             self.level      = 'patch' if options.level is None else options.level
         else:
@@ -158,7 +156,6 @@ class BumpVersion:
             'patch': 2,
         }[self.level]
 
-        print(f'Version: {version}, level={level}')
         if self.prerelease is None:
 
             if len(version) == 4:
