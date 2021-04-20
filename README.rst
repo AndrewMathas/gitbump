@@ -28,7 +28,7 @@ optional arguments:
 
 Use git bump to:
     - increment the version number in the .ini file for the project
-    - update the release date in the .ini file
+    - update the release and copyright dates in the .ini file
     - add a tag to the git repository with an optional commit message
     - optionally, push the tags to the remote repository
 

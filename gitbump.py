@@ -3,7 +3,7 @@
 r'''
 Use git bump to:
     - increment the version number in the .ini file for the project
-    - update the release date in the .ini file
+    - update the release and copyrighty dates in the .ini file
     - add a tag to the git repository with an optional commit message
     - optionally, push the tags to the remote repository
 
@@ -110,7 +110,7 @@ class BumpVersion:
         self.bump_version()
 
         # save updated ini file
-        self.save_ini_file()
+        self.update_ini_file()
 
         # commit new version and add a tag
         self.add_git_tag()
@@ -236,15 +236,35 @@ class BumpVersion:
             sys.exit(2)
 
 
-    def save_ini_file(self):
+    def update_ini_file(self):
         '''
         Save the updated ini file
         '''
-
         # update the release date
         if 'release date' in self._ini_file_data:
             now = datetime.datetime.now().astimezone()
             self._ini_file_data['release date'] = f'{now:%-d %B %Y %Z}'
+
+        # update the copyright date
+        if 'copyright' in self._ini_file_data:
+            try:
+                copyr, extra = self._ini_file_data['copyright'].split(' ')
+            except ValueError:
+                copyr = self._ini_file_data['copyright']
+                extra=''
+            now = datetime.datetime.now().astimezone()
+            if '-' in copyr:
+                one, two = copyr.split('-')
+                copyr = f'{one}-{now:%Y}'
+            else:
+                year = f'{now:%Y}'
+                if int(year) < int(copyr):
+                    print('Current copyright date is in the future!')
+                    sys.exit(6)
+                elif copyr != year:
+                    copyr = f'{copyr}-{year}'
+
+            self._ini_file_data['copyright'] = copyr if extra=='' else f'{copyr} {extra}'
 
         padding = max(len(key) for key in self._ini_file_data)
         with open(self._ini_file, 'w') as ini:
