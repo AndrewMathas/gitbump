@@ -289,7 +289,7 @@ def main():
       const   = 'patch',
       default = None,
       dest    = 'level',
-      help    = 'increment patch version'
+      help    = 'increment patch version (default)'
     )
     level.add_argument('-m', '--minor',
       action  = 'store_const',
