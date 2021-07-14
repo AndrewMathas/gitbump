@@ -104,7 +104,7 @@ class BumpVersion:
         self.pushtags   = options.pushtags
 
         # read ini file
-        self.read_ini_file()
+        self.read_ini_file(options.ini_file)
 
         # increment the version number
         self.bump_version()
@@ -203,23 +203,32 @@ class BumpVersion:
             self._ini_file_data['version'] = f'{".".join(version[:3])}-{self.prerelease[0]}0'
 
 
-    def read_ini_file(self):
+    def read_ini_file(self, ini_file):
         '''
         Locate and read the ini file for the project, storing the data
         in the dictionary self._ini_file.
         '''
-        # change directory to the root of the repository
-        project_dir = git('root')
 
-        try:
-            os.chdir(project_dir)
 
-        except IOError as err:
-            print(f'There was a problem changing to the root directory of the project\n - {err}')
-            sys.exit(2)
+        print(f'ini file = {ini_file}')
+        if ini_file is None:
+            # change directory to the root of the repository
+            project_dir = git('root')
 
-        project = os.path.basename(project_dir).lower()
-        self._ini_file = git(rf'ls-files \*{project}.ini')
+            try:
+                os.chdir(project_dir)
+            except IOError as err:
+                print(f'There was a problem changing to the root directory of the project\n - {err}')
+                sys.exit(2) 
+
+            project = os.path.basename(project_dir).lower()
+            self._ini_file = git(rf'ls-files \*{project}.ini')
+        else:
+            self._ini_file = ini_file if ini_file.endswith('ini') else f'{ini_file}.ini'
+            if not os.path.isfile(self._ini_file):
+                print(f'ini file "{self._ini_file}" not found!')
+                sys.exit(2)
+
         self._ini_file_data = {}
         try:
             with open(self._ini_file) as ini:
@@ -324,6 +333,11 @@ def main():
       const   = 'rc',
       dest    = 'prerelease',
       help    = 'release candidate'
+    )
+
+    parser.add_argument('-i', '--ini-file',
+      default = None,
+      help    = 'Specify the name of the ini file to use'
     )
 
     parser.add_argument('--pushtags',
