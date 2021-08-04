@@ -210,7 +210,6 @@ class BumpVersion:
         '''
 
 
-        print(f'ini file = {ini_file}')
         if ini_file is None:
             # change directory to the root of the repository
             project_dir = git('root')
