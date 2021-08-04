@@ -131,7 +131,7 @@ class BumpVersion:
             git(f'tag -a v{self._ini_file_data["version"]}')
         else:
             git(f'commit -am "{description} {self._ini_file_data["version"]}: {self.message}"')
-            git(f'tag -a v{self._ini_file_data["version"]} -m "{description}: {self.message}"')
+            git(f'tag -a v{self._ini_file_data["version"]} -m "{self.message}"')
 
         if self.pushtags:
             git('push --tags')
