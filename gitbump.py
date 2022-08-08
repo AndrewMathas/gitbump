@@ -221,7 +221,7 @@ class BumpVersion:
                 sys.exit(2) 
 
             project = os.path.basename(project_dir).lower()
-            self._ini_file = git(rf'ls-files \*{project}.ini')
+            self._ini_file = git(rf'ls-files \*{project}\*.ini')
         else:
             self._ini_file = ini_file if ini_file.endswith('ini') else f'{ini_file}.ini'
             if not os.path.isfile(self._ini_file):
