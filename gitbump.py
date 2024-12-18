@@ -218,7 +218,7 @@ class BumpVersion:
                 os.chdir(project_dir)
             except IOError as err:
                 print(f'There was a problem changing to the root directory of the project\n - {err}')
-                sys.exit(2) 
+                sys.exit(2)
 
             project = os.path.basename(project_dir).lower()
             self._ini_file = git(rf'ls-files \*{project}\*.ini')
@@ -236,7 +236,7 @@ class BumpVersion:
                     self._ini_file_data[key.strip()] = value.strip()
 
         except FileNotFoundError:
-            print('No ini file found in the repository!')
+            print(f'No ini file {self._ini_file} found in the repository!')
             sys.exit(3)
 
         if 'version' not in self._ini_file_data:
