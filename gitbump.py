@@ -102,6 +102,7 @@ class BumpVersion:
         self.prerelease = options.prerelease
         self.message    = ' '.join(options.message)
         self.pushtags   = options.pushtags
+        self.debug      = options.debug
 
         # read ini file
         self.read_ini_file(options.ini_file)
@@ -126,15 +127,20 @@ class BumpVersion:
             'patch': 'Patch',
         }[self.level]
 
-        if self.message == '':
-            git(f'commit --no-verify -am "{description} {self._ini_file_data["version"]}"')
-            git(f'tag -a v{self._ini_file_data["version"]}')
-        else:
-            git(f'commit --no-verify -am "{description} {self._ini_file_data["version"]}: {self.message}"')
-            git(f'tag -a v{self._ini_file_data["version"]} -m "{self.message}"')
+        if self.debug:
+            print(f'Git tag = v{self._ini_file_data["version"]}')
+            print(f'Git tag message = {self.message}')
 
-        if self.pushtags:
-            git('push --tags')
+        else:
+            if self.message == '':
+                git(f'commit --no-verify -am "{description} {self._ini_file_data["version"]}"')
+                git(f'tag -a v{self._ini_file_data["version"]}')
+            else:
+                git(f'commit --no-verify -am "{description} {self._ini_file_data["version"]}: {self.message}"')
+                git(f'tag -a v{self._ini_file_data["version"]} -m "{self.message}"')
+
+            if self.pushtags:
+                git('push --tags')
 
 
     def bump_version(self):
@@ -144,7 +150,7 @@ class BumpVersion:
         TODO: support release candidates etc
         '''
 
-        version = re.split('\.|-', self._ini_file_data['version'])
+        version = re.split(r'\.|-', self._ini_file_data['version'])
         # enforce semvar version number of the form major.minor.patch
         while len(version) < 3:
             version.append('0')
@@ -266,18 +272,26 @@ class BumpVersion:
                 copyr = f'{one}-{now:%Y}'
             else:
                 year = f'{now:%Y}'
-                if int(year) < int(copyr):
+                cyear = copyr.split()[0]
+                if int(year) < int(cyear):
                     print('Current copyright date is in the future!')
                     sys.exit(6)
                 elif copyr != year:
-                    copyr = f'{copyr}-{year}'
+                    copyr = copyr.replace(cyear, f'{cyear}-{year}')
 
             self._ini_file_data['copyright'] = copyr if extra=='' else f'{copyr} {extra}'
 
         padding = max(len(key) for key in self._ini_file_data)
-        with open(self._ini_file, 'w') as ini:
-            for key in self._ini_file_data:
-                ini.write(f'{key:<{padding}s} = {self._ini_file_data[key]}\n')
+        if self.debug:
+            print(f'level = {self.level}')
+            print('New ini file\n', '-'*12)
+            print('\n'.join(f' - {key:<{padding}s} = {self._ini_file_data[key]}' for key in self._ini_file_data))
+            print('-'*12)
+
+        else:
+            with open(self._ini_file, 'w') as ini:
+                for key in self._ini_file_data:
+                    ini.write(f'{key:<{padding}s} = {self._ini_file_data[key]}\n')
 
 
 
@@ -349,6 +363,13 @@ def main():
       action  ='version',
       version = settings.version,
       help    = argparse.SUPPRESS
+    )
+
+    # debug mode
+    parser.add_argument('-d', '--debug',
+      action  ='store_true',
+      default = False,
+      help    = 'Debug mode: report what would be done but do not make changes'
     )
 
     # override default help mechanism
