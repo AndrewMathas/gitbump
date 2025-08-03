@@ -188,11 +188,11 @@ class BumpVersion:
         elif len(version) == 4:
             # a pre-release flag is already in play
 
-            if self.prerelease[0] < version[0]:
-                print(f'An {self.prerelease} pre-release cannot follow pre-release {self._ini_file_data["version"]} !')
+            if self.prerelease[0] < version[3][0]:
+                print(f'A {self.prerelease[3]} pre-release cannot follow pre-release {self._ini_file_data["version"]} !')
                 sys.exit(4)
 
-            elif self.prerelease[0] == version[0]:
+            elif self.prerelease[0] == version[3][0]:
                 # increment the pre-release number and store in the ini file data
                 version[3] = f'{version[3][0]}{int(version[3][1])+1}'
                 self._ini_file_data['version'] = f'{".".join(version[:3])}-{version[3]}'
@@ -217,6 +217,9 @@ class BumpVersion:
 
 
         if ini_file is None:
+            # If the ini file is not set then look through the files
+            # tracked by git to try and find an ini file
+
             # change directory to the root of the repository
             project_dir = git('root')
 
@@ -228,6 +231,7 @@ class BumpVersion:
 
             project = os.path.basename(project_dir).lower()
             self._ini_file = git(rf'ls-files \*{project}\*.ini')
+
         else:
             self._ini_file = ini_file if ini_file.endswith('ini') else f'{ini_file}.ini'
             if not os.path.isfile(self._ini_file):
@@ -261,29 +265,26 @@ class BumpVersion:
 
         # update the copyright date
         if 'copyright' in self._ini_file_data:
-            try:
-                copyr, extra = self._ini_file_data['copyright'].split(' ')
-            except ValueError:
-                copyr = self._ini_file_data['copyright']
-                extra=''
+            words = self._ini_file_data['copyright'].split(' ')
+            year = words[0]
+            extra = ' '.join(w for w in words[1:])
             now = datetime.datetime.now().astimezone()
-            if '-' in copyr:
-                one, two = copyr.split('-')
-                copyr = f'{one}-{now:%Y}'
+            if '-' in year:
+                one, two = year.split('-')
+                year = f'{one}-{now:%Y}'
             else:
-                year = f'{now:%Y}'
-                cyear = copyr.split()[0]
-                if int(year) < int(cyear):
+                thisyear = f'{now:%Y}'
+                if int(year) < int(thisyear):
                     print('Current copyright date is in the future!')
                     sys.exit(6)
-                elif copyr != year:
-                    copyr = copyr.replace(cyear, f'{cyear}-{year}')
+                elif year != thisyear:
+                    year = f'{year}-{thisyear}'
 
-            self._ini_file_data['copyright'] = copyr if extra=='' else f'{copyr} {extra}'
+            self._ini_file_data['copyright'] =  f'{year} {extra}'.strip()
 
         padding = max(len(key) for key in self._ini_file_data)
         if self.debug:
-            print(f'level = {self.level}')
+            print(f'level = {self.level}, prelease = {self.prerelease}')
             print('New ini file\n', '-'*12)
             print('\n'.join(f' - {key:<{padding}s} = {self._ini_file_data[key]}' for key in self._ini_file_data))
             print('-'*12)
@@ -348,8 +349,9 @@ def main():
       help    = 'release candidate'
     )
 
-    parser.add_argument('-i', '--ini-file',
+    parser.add_argument('-i', '--inifile',
       default = None,
+      dest = 'ini_file',
       help    = 'Specify the name of the ini file to use'
     )
 
