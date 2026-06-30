@@ -146,13 +146,19 @@ class BumpVersion:
             print(f'The tag {tag} already exists: aborting without making any changes.')
             sys.exit(7)
 
-        # warn about any other uncommitted changes: they are NOT included in the
-        # isolated version-bump commit that the tag will point at
-        others = [line[3:] for line in git('status', '--porcelain').splitlines()
-                  if line[3:] != self._ini_file]
+        # warn about any other uncommitted changes (staged, unstaged or
+        # untracked) that are NOT included in the isolated version-bump commit.
+        # Collect plain paths via name-only commands: parsing the columns of
+        # `git status --porcelain` is fragile because git() strips the leading
+        # status space from the first line.
+        changed = set()
+        changed.update(git('diff', '--name-only').splitlines())              # unstaged
+        changed.update(git('diff', '--cached', '--name-only').splitlines())  # staged
+        changed.update(git('ls-files', '--others', '--exclude-standard').splitlines())  # untracked
+        others = sorted(p for p in changed if p and p != self._ini_file)
         if others:
             print('Warning: these changes are NOT part of the release commit:')
-            print('\n'.join(f'    {f}' for f in others))
+            print('\n'.join(f'    {p}' for p in others))
 
         # commit only the ini file so the tagged commit is exactly the version bump
         git('commit', '--no-verify', '-m', commit_message, '--', self._ini_file)
