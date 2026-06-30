@@ -43,18 +43,18 @@ import sys
 
 
 ############################################################
-def git(command):
+def git(*args):
     '''
-    Run the git command `cmd` and return the output
+    Run `git` with the given arguments, each a separate (unquoted) argument, and
+    return its stdout. Passing an argument list rather than a shell string avoids
+    quoting and injection problems with commit messages and other user input.
     '''
-    git = subprocess.run(f'git {command}', shell=True, capture_output=True)
-    if git.returncode != 0 or git.stderr.decode() != '':
-        if 'spelling errors' not in git.stderr.decode():
-            print(f'There was a problem running the git command\n    git {command}')
-            print(f'The following error occurred: {git.stderr.decode()}')
-            sys.exit(1)
-
-    return git.stdout.decode().strip()
+    result = subprocess.run(['git', *args], capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f'There was a problem running the git command\n    git {" ".join(args)}')
+        print(f'The following error occurred: {result.stderr.strip()}')
+        sys.exit(1)
+    return result.stdout.strip()
 
 
 ############################################################
@@ -66,7 +66,9 @@ class Settings(dict):
         super().__init__()
         with open(os.path.join(os.path.dirname(__file__), filename), 'r') as meta:
             for line in meta:
-                key, val = line.split('=')
+                if '=' not in line or line.lstrip().startswith(('#', ';')):
+                    continue
+                key, val = line.split('=', 1)
                 if key.strip() != '':
                     setattr(self, key.strip().lower(), val.strip())
 
@@ -119,28 +121,48 @@ class BumpVersion:
 
     def add_git_tag(self):
         '''
-        Add a git tag the release together with any commit message
+        Commit the version bump (the ini file only) and add an annotated tag for
+        the release, optionally pushing the branch and the tag to the remote.
         '''
-        description = {
-            'major': 'Version',
-            'minor': 'Minor update',
-            'patch': 'Patch',
-        }[self.level]
+        version = self._ini_file_data['version']
+        tag = f'v{version}'
+        update = f'Updated {self._program_name()} version to {tag}'
+
+        if self.message == '':
+            commit_message = update
+            tag_message = update
+        else:
+            commit_message = f'{update}: {self.message}'
+            tag_message = self.message
 
         if self.debug:
-            print(f'Git tag = v{self._ini_file_data["version"]}')
-            print(f'Git tag message = {self.message}')
+            print(f'Git tag            = {tag}')
+            print(f'Git commit message = {commit_message}')
+            print(f'Git tag message    = {tag_message}')
+            return
 
-        else:
-            if self.message == '':
-                git(f'commit --no-verify -am "{description} {self._ini_file_data["version"]}"')
-                git(f'tag -a v{self._ini_file_data["version"]}')
-            else:
-                git(f'commit --no-verify -am "{description} {self._ini_file_data["version"]}: {self.message}"')
-                git(f'tag -a v{self._ini_file_data["version"]} -m "{self.message}"')
+        # do not silently clobber an existing tag
+        if git('tag', '--list', tag):
+            print(f'The tag {tag} already exists: aborting without making any changes.')
+            sys.exit(7)
 
-            if self.pushtags:
-                git('push --tags')
+        # warn about any other uncommitted changes: they are NOT included in the
+        # isolated version-bump commit that the tag will point at
+        others = [line[3:] for line in git('status', '--porcelain').splitlines()
+                  if line[3:] != self._ini_file]
+        if others:
+            print('Warning: these changes are NOT part of the release commit:')
+            print('\n'.join(f'    {f}' for f in others))
+
+        # commit only the ini file so the tagged commit is exactly the version bump
+        git('commit', '--no-verify', '-m', commit_message, '--', self._ini_file)
+        git('tag', '-a', tag, '-m', tag_message)
+
+        if self.pushtags:
+            # push the branch together with its annotated tags so the tagged
+            # commit is always reachable from a branch on the remote
+            branch = git('rev-parse', '--abbrev-ref', 'HEAD')
+            git('push', '--follow-tags', 'origin', branch)
 
 
     def bump_version(self):
@@ -189,12 +211,13 @@ class BumpVersion:
             # a pre-release flag is already in play
 
             if self.prerelease[0] < version[3][0]:
-                print(f'A {self.prerelease[3]} pre-release cannot follow pre-release {self._ini_file_data["version"]} !')
+                print(f'A {self.prerelease} pre-release cannot follow pre-release {self._ini_file_data["version"]} !')
                 sys.exit(4)
 
             elif self.prerelease[0] == version[3][0]:
-                # increment the pre-release number and store in the ini file data
-                version[3] = f'{version[3][0]}{int(version[3][1])+1}'
+                # increment the pre-release number, allowing for multi-digit numbers
+                letter, number = version[3][0], version[3][1:]
+                version[3] = f'{letter}{int(number)+1}'
                 self._ini_file_data['version'] = f'{".".join(version[:3])}-{version[3]}'
 
             else:
@@ -221,7 +244,7 @@ class BumpVersion:
             # tracked by git to try and find an ini file
 
             # change directory to the root of the repository
-            project_dir = git('root')
+            project_dir = git('rev-parse', '--show-toplevel')
 
             try:
                 os.chdir(project_dir)
@@ -230,7 +253,7 @@ class BumpVersion:
                 sys.exit(2)
 
             project = os.path.basename(project_dir).lower()
-            self._ini_file = git(rf'ls-files \*{project}\*.ini')
+            self._ini_file = git('ls-files', f'*{project}*.ini')
 
         else:
             self._ini_file = ini_file if ini_file.endswith('ini') else f'{ini_file}.ini'
@@ -242,7 +265,9 @@ class BumpVersion:
         try:
             with open(self._ini_file) as ini:
                 for line in ini:
-                    key, value = line.split('=')
+                    if '=' not in line or line.lstrip().startswith(('#', ';')):
+                        continue
+                    key, value = line.split('=', 1)
                     self._ini_file_data[key.strip()] = value.strip()
 
         except FileNotFoundError:
@@ -254,33 +279,67 @@ class BumpVersion:
             sys.exit(2)
 
 
+    @staticmethod
+    def _canonical(name):
+        '''
+        Canonicalise an ini key so that spaces, hyphens and underscores (and
+        case) are all treated as equivalent.
+        '''
+        return name.strip().lower().replace('-', '_').replace(' ', '_')
+
+    def _key(self, name):
+        '''
+        Return the actual ini key matching `name` (compared canonically), or
+        None if the ini has no such key. This lets keys be written as, e.g.,
+        'release date', 'release-date' or 'release_date'.
+        '''
+        target = self._canonical(name)
+        for key in self._ini_file_data:
+            if self._canonical(key) == target:
+                return key
+        return None
+
+    def _program_name(self):
+        '''
+        Best-effort program name for commit and tag messages: the ini `program`
+        value if present, otherwise the ini filename without its extension.
+        '''
+        key = self._key('program')
+        if key and self._ini_file_data[key]:
+            return self._ini_file_data[key]
+        return os.path.splitext(os.path.basename(self._ini_file))[0]
+
+
     def update_ini_file(self):
         '''
         Save the updated ini file
         '''
-        # update the release date
-        if 'release date' in self._ini_file_data:
-            now = datetime.datetime.now().astimezone()
-            self._ini_file_data['release date'] = f'{now:%-d %B %Y %Z}'
+        now = datetime.datetime.now().astimezone()
+
+        # update the release date (the key may be written as 'release date',
+        # 'release-date' or 'release_date')
+        release_key = self._key('release_date')
+        if release_key:
+            self._ini_file_data[release_key] = f'{now:%-d %B %Y %Z}'
 
         # update the copyright date
-        if 'copyright' in self._ini_file_data:
-            words = self._ini_file_data['copyright'].split(' ')
+        copyright_key = self._key('copyright')
+        if copyright_key:
+            words = self._ini_file_data[copyright_key].split(' ')
             year = words[0]
             extra = ' '.join(w for w in words[1:])
-            now = datetime.datetime.now().astimezone()
             if '-' in year:
                 one, two = year.split('-')
                 year = f'{one}-{now:%Y}'
             else:
                 thisyear = f'{now:%Y}'
-                if int(year) < int(thisyear):
+                if int(year) > int(thisyear):
                     print('Current copyright date is in the future!')
                     sys.exit(6)
                 elif year != thisyear:
                     year = f'{year}-{thisyear}'
 
-            self._ini_file_data['copyright'] =  f'{year} {extra}'.strip()
+            self._ini_file_data[copyright_key] = f'{year} {extra}'.strip()
 
         padding = max(len(key) for key in self._ini_file_data)
         if self.debug:
